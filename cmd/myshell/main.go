@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -26,23 +27,32 @@ func echoCommand(arguments []string) {
 	fmt.Print("\n")
 }
 
+func inPath(fileName string) (string, bool) {
+	pathDirectories := strings.Split(os.Getenv("PATH"), ":")
+
+	for _, dir := range pathDirectories {
+		fullPath := dir + "/" + fileName
+		if _, err := os.Stat(fullPath); err == nil {
+			return fullPath, true
+		}
+	}
+
+	return "", false
+}
+
 func typeCommand(arguments []string) {
 	arg := arguments[0]
-	pathDirectories := strings.Split(os.Getenv("PATH"), ":")
 
 	if _, ok := builtinCommands[arg]; ok {
 		fmt.Println(arg, "is a shell builtin")
 		return
 	}
 
-	for _, dir := range pathDirectories {
-		fullPath := dir + "/" + arg
-		if _, err := os.Stat(fullPath); err == nil {
-			fmt.Println(arg, "is", fullPath)
-			return
-		}
+	if fullPath, ok := inPath(arg); ok {
+		fmt.Println(arg, "is", fullPath)
+		return
 	}
-	
+
 	fmt.Println(arg + ": not found")
 }
 
@@ -59,11 +69,16 @@ func main() {
 
 		cmdString = strings.TrimSuffix(cmdString, "\n")
 		cmdStringParts := strings.Split(cmdString, " ")
-		
-		
+
 		command := cmdStringParts[0]
 		arguments := cmdStringParts[1:]
-		
+
+		out, err := exec.Command(command, arguments...).Output()
+		if err == nil {
+			fmt.Print(string(out))
+			continue
+		}
+
 		switch command {
 		case "exit":
 			exitCommand(arguments)
@@ -75,6 +90,5 @@ func main() {
 			fmt.Println(command + ": command not found")
 		}
 
-		
 	}
 }
