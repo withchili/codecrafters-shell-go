@@ -13,13 +13,13 @@ var builtinCommands = map[string]bool{
 	"echo": true,
 }
 
-func exit(arguments []string) {
+func exitCommand(arguments []string) {
 	if arguments[0] == "0" {
 		os.Exit(0)
 	}
 }
 
-func echo(arguments []string) {
+func echoCommand(arguments []string) {
 	for _, arg := range arguments {
 		fmt.Print(arg, " ")
 	}
@@ -28,16 +28,25 @@ func echo(arguments []string) {
 
 func typeCommand(arguments []string) {
 	arg := arguments[0]
+	pathDirectories := strings.Split(os.Getenv("PATH"), ":")
+
 	if _, ok := builtinCommands[arg]; ok {
 		fmt.Println(arg, "is a shell builtin")
-	} else {
-		fmt.Println(arg + ": not found")
+		return
 	}
+
+	for _, dir := range pathDirectories {
+		fullPath := dir + "/" + arg
+		if _, err := os.Stat(fullPath); err == nil {
+			fmt.Println(arg, "is", fullPath)
+			return
+		}
+	}
+	
+	fmt.Println(arg + ": not found")
 }
 
 func main() {
-	
-
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
 
@@ -57,9 +66,9 @@ func main() {
 		
 		switch command {
 		case "exit":
-			exit(arguments)
+			exitCommand(arguments)
 		case "echo":
-			echo(arguments)
+			echoCommand(arguments)
 		case "type":
 			typeCommand(arguments)
 		default:
