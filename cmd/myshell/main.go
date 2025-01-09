@@ -67,7 +67,14 @@ func cdCommand(arguments []string) {
 	if len(arguments) == 0 {
 		return
 	}
+
 	path := arguments[0]
+	
+	if path == "~" {
+		_ = os.Chdir(os.Getenv("HOME"))
+		return
+	}
+	
 	err := os.Chdir(path)
 	if err != nil {
 		fmt.Println("cd: " + path + ": No such file or directory")
