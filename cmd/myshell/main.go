@@ -13,6 +13,7 @@ var builtinCommands = map[string]bool{
 	"exit": true,
 	"echo": true,
 	"pwd": true,
+	"cd": true,
 }
 
 func exitCommand(arguments []string) {
