@@ -12,6 +12,7 @@ var builtinCommands = map[string]bool{
 	"type": true,
 	"exit": true,
 	"echo": true,
+	"pwd": true,
 }
 
 func exitCommand(arguments []string) {
@@ -56,6 +57,11 @@ func typeCommand(arguments []string) {
 	fmt.Println(arg + ": not found")
 }
 
+func pwdCommand() {
+	dir, _ := os.Getwd()
+	fmt.Println(dir)
+}
+
 func main() {
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
@@ -86,6 +92,8 @@ func main() {
 			echoCommand(arguments)
 		case "type":
 			typeCommand(arguments)
+		case "pwd":
+			pwdCommand()
 		default:
 			fmt.Println(command + ": command not found")
 		}
