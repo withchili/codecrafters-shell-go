@@ -62,6 +62,17 @@ func pwdCommand() {
 	fmt.Println(dir)
 }
 
+func cdCommand(arguments []string) {
+	if len(arguments) == 0 {
+		return
+	}
+	path := arguments[0]
+	err := os.Chdir(path)
+	if err != nil {
+		fmt.Println("cd: " + path + ": No such file or directory")
+	}
+}
+
 func main() {
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
@@ -94,6 +105,8 @@ func main() {
 			typeCommand(arguments)
 		case "pwd":
 			pwdCommand()
+		case "cd":
+			cdCommand(arguments)
 		default:
 			fmt.Println(command + ": command not found")
 		}
