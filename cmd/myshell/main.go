@@ -12,8 +12,8 @@ var builtinCommands = map[string]bool{
 	"type": true,
 	"exit": true,
 	"echo": true,
-	"pwd": true,
-	"cd": true,
+	"pwd":  true,
+	"cd":   true,
 }
 
 func exitCommand(arguments []string) {
@@ -69,12 +69,12 @@ func cdCommand(arguments []string) {
 	}
 
 	path := arguments[0]
-	
+
 	if path == "~" {
 		_ = os.Chdir(os.Getenv("HOME"))
 		return
 	}
-	
+
 	err := os.Chdir(path)
 	if err != nil {
 		fmt.Println("cd: " + path + ": No such file or directory")
@@ -85,18 +85,16 @@ func main() {
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
 
-		// Wait for user input
 		cmdString, err := bufio.NewReader(os.Stdin).ReadString('\n')
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
 			os.Exit(1)
 		}
 
-		cmdString = strings.TrimSuffix(cmdString, "\n")
-		cmdStringParts := strings.Split(cmdString, " ")
+		// cmdString = strings.TrimSuffix(cmdString, "\n")
+		// cmdStringParts := strings.Split(cmdString, " ")
 
-		command := cmdStringParts[0]
-		arguments := cmdStringParts[1:]
+		command, arguments := parseCmd(cmdString)
 
 		out, err := exec.Command(command, arguments...).Output()
 		if err == nil {
@@ -120,4 +118,56 @@ func main() {
 		}
 
 	}
+}
+
+func parseCmd(cmd string) (command string, args []string) {
+	var buffer strings.Builder
+	var argString string
+
+	for i, char := range cmd {
+		if char == ' ' {
+			command = buffer.String()
+			argString = strings.TrimSpace(cmd[i+1:])
+			break
+		}
+		if char == '\n' {
+			command = buffer.String()
+			return
+		}
+		buffer.WriteRune(char)
+	}
+
+	if command == "" {
+		command = buffer.String()
+		return
+	}
+
+	buffer.Reset()
+
+	waitingForQuote := false
+	for i, char := range argString {
+		switch char {
+		case '\'':
+			waitingForQuote = !waitingForQuote
+			if !waitingForQuote && i+1 < len(argString)-1 && rune(argString[i+1]) != '\'' {
+				args = append(args, buffer.String())
+				buffer.Reset()
+			}
+		case ' ', '\n':
+			if waitingForQuote {
+				buffer.WriteRune(char)
+			} else if buffer.Len() > 0 {
+				args = append(args, buffer.String())
+				buffer.Reset()
+			}
+		default:
+			buffer.WriteRune(char)
+		}
+	}
+
+	if buffer.Len() > 0 {
+		args = append(args, buffer.String())
+	}
+
+	return
 }
