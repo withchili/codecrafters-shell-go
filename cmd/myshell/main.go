@@ -26,6 +26,7 @@ func echoCommand(arguments []string) {
 	for _, arg := range arguments {
 		fmt.Print(arg, " ")
 	}
+
 	fmt.Print("\n")
 }
 
@@ -81,6 +82,76 @@ func cdCommand(arguments []string) {
 	}
 }
 
+func parseCmd(cmd string) (command string, args []string, err error) {
+	var stringBuffer strings.Builder
+	var remainingCmd string
+
+	if cmd == "" {
+		return "", nil, nil
+	}
+
+	for _, rn := range cmd {
+		if rn == ' ' {
+			command = stringBuffer.String()
+			remainingCmd = strings.TrimPrefix(cmd, command+" ")
+			break
+		}
+		if rn == '\n' {
+			command = stringBuffer.String()
+			return
+		}
+		stringBuffer.WriteRune(rn)
+	}
+
+	stringBuffer.Reset()
+
+	remainingCmd = strings.TrimSuffix(remainingCmd, "\n")
+
+	expectingDoubleQuote := false
+	expectingSingleQuote := false
+
+	for i, rn := range remainingCmd {
+		switch rn {
+		case '"':
+			expectingDoubleQuote = !expectingDoubleQuote
+			if !expectingDoubleQuote && i+1 < len(remainingCmd) && remainingCmd[i+1] != '"' {
+				args = append(args, stringBuffer.String())
+				stringBuffer.Reset()
+			}
+		case '\'':
+			if expectingDoubleQuote {
+				stringBuffer.WriteRune(rn)
+				continue
+			}
+			expectingSingleQuote = !expectingSingleQuote
+			if !expectingSingleQuote && i+1 < len(remainingCmd) && remainingCmd[i+1] != '\'' {
+				args = append(args, stringBuffer.String())
+				stringBuffer.Reset()
+			}
+		case ' ':
+			if expectingDoubleQuote || expectingSingleQuote {
+				stringBuffer.WriteRune(rn)
+				continue
+			}
+			if stringBuffer.Len() > 0 {
+				args = append(args, stringBuffer.String())
+				stringBuffer.Reset()
+			}
+		default:
+			stringBuffer.WriteRune(rn)
+		}
+	}
+
+	if expectingDoubleQuote || expectingSingleQuote {
+		return "", nil, fmt.Errorf("unmatched quote in input string")
+	}
+	if stringBuffer.Len() > 0 {
+		args = append(args, stringBuffer.String())
+	}
+
+	return
+}
+
 func main() {
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
@@ -91,10 +162,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		// cmdString = strings.TrimSuffix(cmdString, "\n")
-		// cmdStringParts := strings.Split(cmdString, " ")
-
-		command, arguments := parseCmd(cmdString)
+		command, arguments, _ := parseCmd(cmdString)
 
 		out, err := exec.Command(command, arguments...).Output()
 		if err == nil {
@@ -116,58 +184,5 @@ func main() {
 		default:
 			fmt.Println(command + ": command not found")
 		}
-
 	}
-}
-
-func parseCmd(cmd string) (command string, args []string) {
-	var buffer strings.Builder
-	var argString string
-
-	for i, char := range cmd {
-		if char == ' ' {
-			command = buffer.String()
-			argString = strings.TrimSpace(cmd[i+1:])
-			break
-		}
-		if char == '\n' {
-			command = buffer.String()
-			return
-		}
-		buffer.WriteRune(char)
-	}
-
-	if command == "" {
-		command = buffer.String()
-		return
-	}
-
-	buffer.Reset()
-
-	waitingForQuote := false
-	for i, char := range argString {
-		switch char {
-		case '\'':
-			waitingForQuote = !waitingForQuote
-			if !waitingForQuote && i+1 < len(argString)-1 && rune(argString[i+1]) != '\'' {
-				args = append(args, buffer.String())
-				buffer.Reset()
-			}
-		case ' ', '\n':
-			if waitingForQuote {
-				buffer.WriteRune(char)
-			} else if buffer.Len() > 0 {
-				args = append(args, buffer.String())
-				buffer.Reset()
-			}
-		default:
-			buffer.WriteRune(char)
-		}
-	}
-
-	if buffer.Len() > 0 {
-		args = append(args, buffer.String())
-	}
-
-	return
 }
