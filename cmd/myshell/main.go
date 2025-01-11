@@ -111,46 +111,52 @@ func parseCmd(cmd string) (command string, args []string, err error) {
 	expectingSingleQuote := false
 	backslashIsOn := false
 
-	for i, rn := range remainingCmd {
+	for _, rn := range remainingCmd {
 		if backslashIsOn {
 			stringBuffer.WriteRune(rn)
-			backslashIsOn = !backslashIsOn
+			backslashIsOn = false
 			continue
 		}
 
 		switch rn {
 		case '"':
-			expectingDoubleQuote = !expectingDoubleQuote
-			if !expectingDoubleQuote && i+1 < len(remainingCmd) && remainingCmd[i+1] != '"' {
-				args = append(args, stringBuffer.String())
-				stringBuffer.Reset()
-			}
-		case '\'':
-			if expectingDoubleQuote {
-				stringBuffer.WriteRune(rn)
+			if !expectingSingleQuote {
+				expectingDoubleQuote = !expectingDoubleQuote
 				continue
 			}
-			expectingSingleQuote = !expectingSingleQuote
-			if !expectingSingleQuote && i+1 < len(remainingCmd) && remainingCmd[i+1] != '\'' {
-				args = append(args, stringBuffer.String())
-				stringBuffer.Reset()
+			stringBuffer.WriteRune(rn)
+		case '\'':
+			if !expectingDoubleQuote {
+				expectingSingleQuote = !expectingSingleQuote
+				continue
+			}
+			stringBuffer.WriteRune(rn)
+		case '\\':
+			if backslashIsOn {
+				stringBuffer.WriteRune(rn)
+				backslashIsOn = false
+			} else if expectingSingleQuote || expectingDoubleQuote {
+				stringBuffer.WriteRune(rn)
+			} else {
+				backslashIsOn = true
 			}
 		case ' ':
-			if expectingDoubleQuote || expectingSingleQuote {
+			if backslashIsOn {
 				stringBuffer.WriteRune(rn)
-				continue
-			}
-			if stringBuffer.Len() > 0 {
-				args = append(args, stringBuffer.String())
-				stringBuffer.Reset()
-			}
-		case '\\':
-			if expectingDoubleQuote {
+				backslashIsOn = false
+			} else if expectingDoubleQuote || expectingSingleQuote {
 				stringBuffer.WriteRune(rn)
-				continue
+			} else {
+				if stringBuffer.Len() > 0 {
+					args = append(args, stringBuffer.String())
+					stringBuffer.Reset()
+				}
 			}
-			backslashIsOn = !backslashIsOn
 		default:
+			if backslashIsOn {
+				stringBuffer.WriteRune('\\')
+				backslashIsOn = false
+			}
 			stringBuffer.WriteRune(rn)
 		}
 	}
@@ -158,11 +164,12 @@ func parseCmd(cmd string) (command string, args []string, err error) {
 	if expectingDoubleQuote || expectingSingleQuote {
 		return "", nil, fmt.Errorf("unmatched quote in input string")
 	}
+
 	if stringBuffer.Len() > 0 {
 		args = append(args, stringBuffer.String())
 	}
 
-	return
+	return command, args, nil
 }
 
 func main() {
@@ -195,7 +202,11 @@ func main() {
 		case "cd":
 			cdCommand(arguments)
 		default:
-			fmt.Println(command + ": command not found")
+			cmd := exec.Command(command, arguments...)
+			cmd.Stdout = os.Stdout
+			if err := cmd.Run(); err != nil {
+				fmt.Println(command + ": command not found")
+			}
 		}
 	}
 }
