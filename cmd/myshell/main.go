@@ -109,8 +109,15 @@ func parseCmd(cmd string) (command string, args []string, err error) {
 
 	expectingDoubleQuote := false
 	expectingSingleQuote := false
+	backslashIsOn := false
 
 	for i, rn := range remainingCmd {
+		if backslashIsOn {
+			stringBuffer.WriteRune(rn)
+			backslashIsOn = !backslashIsOn
+			continue
+		}
+
 		switch rn {
 		case '"':
 			expectingDoubleQuote = !expectingDoubleQuote
@@ -137,6 +144,12 @@ func parseCmd(cmd string) (command string, args []string, err error) {
 				args = append(args, stringBuffer.String())
 				stringBuffer.Reset()
 			}
+		case '\\':
+			if expectingDoubleQuote {
+				stringBuffer.WriteRune(rn)
+				continue
+			}
+			backslashIsOn = !backslashIsOn
 		default:
 			stringBuffer.WriteRune(rn)
 		}
